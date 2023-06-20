@@ -6,6 +6,7 @@ open import Agda.Builtin.Int using (Int)
 open import Agda.Builtin.List using (List; []; _∷_)
 open import Data.Bool using (Bool; false; true; if_then_else_; _∨_)
 open import Data.String as String using (String)
+open import Data.Nat as ℕ using (ℕ; _+_; _*_; _∸_)
 open import Data.Product using (_×_; _,_; proj₁; proj₂)
 open import Data.Maybe using (Maybe; just; nothing)
 open import Data.List.Relation.Unary.Any using (Any; any?; lookup)
@@ -29,7 +30,7 @@ _eqByteString_ (mkByteString x) (mkByteString y) with x String.≟ y
 record PosixTime : Set where
   constructor mkPosixTime
   field
-    getPosixTime : Int
+    getPosixTime : ℕ
 
 -- see also: https://stackoverflow.com/questions/58705398/is-there-an-associative-list-in-the-standard-library
 AssocList : Set → Set → Set

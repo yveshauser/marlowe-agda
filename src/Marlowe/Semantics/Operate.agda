@@ -4,9 +4,10 @@ module Marlowe.Semantics.Operate where
 
 open import Agda.Builtin.Int using (Int)
 open import Data.Bool using (Bool; if_then_else_; not; _∧_; _∨_; true; false)
-open import Data.Integer using (_<?_; _≤?_; _≟_ ; _⊔_; _⊓_; _-_; 0ℤ ; _≤_ ; _>_ ; _≥_ ; _<_)
+open import Data.Nat using (_<?_; _≤?_; _≟_ ; _⊔_; _⊓_; _≤_ ; _>_ ; _≥_ ; _<_ ; _+_ ; _∸_)
 open import Data.List using (List; []; _∷_; _++_; foldr; reverse; [_]; null)
 open import Data.Maybe using (Maybe; just; nothing; fromMaybe)
+open import Data.Nat using (ℕ; suc; zero; _≥_)
 open import Data.Product using (Σ; _,_; ∃; Σ-syntax; ∃-syntax)
 open import Data.Product using (_×_; proj₁; proj₂)
 import Data.String as String
@@ -18,12 +19,16 @@ open import Marlowe.Language.Transaction
 open import Marlowe.Semantics.Evaluate
 open import Primitives
 open import Relation.Nullary.Decidable using (⌊_⌋)
+open import Relation.Nullary using (¬_)
+open import Function.Base using (_$_)
 
 import Relation.Binary.PropositionalEquality as Eq
 open Eq using (_≡_; refl; cong; sym)
 
 import Primitives as P
 open P.Decidable _eqAccountIdTokenDec_ using (_‼_)
+
+{-
 
 fixInterval : TimeInterval → State → IntervalResult
 fixInterval interval state =
@@ -52,29 +57,27 @@ refundOne (((mkAccountId ρ , τ) , ι) ∷ α) =
     then refundOne α
     else just (ρ , τ , ι , α)
 
+-}
 
-moneyInAccount : AccountId → Token → Accounts → Int
-moneyInAccount αₓ τ α = fromMaybe 0ℤ ((αₓ , τ) ‼ α)
+moneyInAccount : AccountId → Token → Accounts → ℕ
+moneyInAccount αₓ τ α = fromMaybe 0 ((αₓ , τ) ‼ α)
 
-updateMoneyInAccount : AccountId → Token → Int → Accounts → Accounts
-updateMoneyInAccount account token amount accounts =
-  let
-    key = account , token
-  in
-    if ⌊ amount ≤? 0ℤ ⌋
-      then key ↓ accounts
-      else ((key , amount) ↑ accounts)
+updateMoneyInAccount : AccountId → Token → ℕ → Accounts → Accounts
+updateMoneyInAccount account token amount accounts = (((account , token) , amount) ↑ accounts)
 
-addMoneyToAccount : AccountId → Token → Int → Accounts → Accounts
+addMoneyToAccount : AccountId → Token → ℕ → Accounts → Accounts
 addMoneyToAccount account token amount accounts =
   let
     balance = moneyInAccount account token accounts
-    newBalance = balance Data.Integer.+ amount
   in
-    if ⌊ amount ≤? 0ℤ ⌋
-      then accounts
-      else updateMoneyInAccount account token newBalance accounts
+    updateMoneyInAccount account token (balance + amount) accounts
 
+subtractMoneyFromAccount : AccountId → Token → ℕ → Accounts → Accounts
+subtractMoneyFromAccount account token amount accounts =
+  let
+    balance = moneyInAccount account token accounts
+  in
+    updateMoneyInAccount account token (balance ∸ amount) accounts
 
 data ReduceEffect : Set where
   ReduceWithPayment : Payment → ReduceEffect
@@ -83,8 +86,8 @@ data ReduceEffect : Set where
 data ReduceWarning : Set where
   ReduceNoWarning : ReduceWarning
   ReduceNonPositivePay : AccountId → Payee → Token → Int → ReduceWarning
-  ReducePartialPay : AccountId → Payee → Token → Int → Int → ReduceWarning
-  ReduceShadowing : ValueId → Int → Int → ReduceWarning
+  ReducePartialPay : AccountId → Payee → Token → ℕ → ℕ → ReduceWarning
+  ReduceShadowing : ValueId → ℕ → ℕ → ReduceWarning
   ReduceAssertionFailed : ReduceWarning
 
 data ReduceStepResult : Set where
@@ -96,6 +99,7 @@ data ReduceResult : Set where
   ContractQuiescent : Bool → List ReduceWarning → List Payment → State → Contract → ReduceResult
   RRAmbiguousTimeIntervalError : ReduceResult
 
+{-
 
 giveMoney : AccountId → Payee → Token → Int → Accounts → ReduceEffect × Accounts
 giveMoney account payee token amount accounts =
@@ -330,38 +334,36 @@ playTraceAux (mkError error) _ = mkError error
 playTrace : PosixTime → Contract → List TransactionInput → TransactionOutput
 playTrace minTime c = playTraceAux (mkTransactionOutput [] [] (emptyState minTime) c)
 
+-}
+
 record Configuration : Set where
   field contract : Contract
         state : State
         environment : Environment
-        warnings : List ReduceWarning
         payments : List Payment
 
 data _⇀_ : Configuration → Configuration → Set where
 
   CloseRefund :
     ∀ { ϵ : Environment }
-      { ω : List ReduceWarning }
       { μ : List Payment }
-      { c : Map ChoiceId Int }
-      { b : Map ValueId Int }
+      { c : Map ChoiceId ℕ }
+      { b : Map ValueId ℕ }
       { m : PosixTime }
       { αₓ : AccountId }
       { τ : Token }
-      { ι : Int }
+      { ι : ℕ }
       { α : Accounts }
-    → ι > 0ℤ
     ---------------------------------
     → record {
         contract = Close ;
         state = record {
-          accounts = ( (αₓ , τ ) , ι ) ∷ α ; -- suc ι
+          accounts = ( (αₓ , τ ) , suc ι ) ∷ α ;
           choices = c ;
           boundValues = b ;
           minTime = m
           } ;
         environment = ϵ ;
-        warnings = ω ;
         payments = μ
       }
       ⇀
@@ -374,36 +376,7 @@ data _⇀_ : Configuration → Configuration → Set where
           minTime = m
           } ;
         environment = ϵ ;
-        warnings = ω ++ [ ReduceNoWarning ] ;
         payments = μ ++ [ mkPayment αₓ (mkAccount αₓ) τ ι ]
-      }
-
-  PayNonPositive :
-    ∀ { σ : State }
-      { ϵ : Environment }
-      { ν : Value }
-      { αₓ : AccountId }
-      { δ : Payee }
-      { τ : Token }
-      { γ : Contract }
-      { ω : List ReduceWarning }
-      { μ : List Payment }
-    → evaluate ϵ σ ν ≤ 0ℤ
-    ---------------------
-    → record {
-        contract = Pay αₓ δ τ ν γ ;
-        state = σ ;
-        environment = ϵ ;
-        warnings = ω ;
-        payments = μ
-      }
-      ⇀
-      record {
-        contract = γ ;
-        state = σ ;
-        environment = ϵ ;
-        warnings = ω ++ [ ReduceNonPositivePay αₓ δ τ (evaluate ϵ σ ν) ] ;
-        payments = μ
       }
 
   PayInternalTransfer :
@@ -413,28 +386,25 @@ data _⇀_ : Configuration → Configuration → Set where
       { αₛ αₜ : AccountId }
       { τ : Token }
       { γ : Contract }
-      { ω : List ReduceWarning }
       { μ : List Payment }
-      { α : Accounts }
-    → evaluate ϵ σ ν > 0ℤ
     ---------------------
-    → let value = evaluate ϵ σ ν
-          available = moneyInAccount αₛ τ (State.accounts σ)
-          paid = available ⊓ value
-      in
-      record {
+    → let value = evaluate ϵ σ ν in
+      value ≤ moneyInAccount αₛ τ (State.accounts σ)
+    → record {
         contract = Pay αₛ (mkAccount αₜ) τ ν γ ;
         state = σ ;
         environment = ϵ ;
-        warnings = ω ;
         payments = μ
       }
       ⇀
       record {
         contract = γ ;
-        state = record σ {accounts = addMoneyToAccount αₜ τ paid α} ;
+        state = record σ {
+          accounts =
+              subtractMoneyFromAccount αₛ τ value
+            $ addMoneyToAccount αₜ τ value (State.accounts σ)
+          } ;
         environment = ϵ ;
-        warnings = ω ++ [ if ⌊ paid <? value ⌋ then ReducePartialPay αₛ (mkAccount αₜ) τ paid value else ReduceNoWarning ];
         payments = μ
       }
 
@@ -445,29 +415,25 @@ data _⇀_ : Configuration → Configuration → Set where
       { αₓ : AccountId }
       { τ : Token }
       { γ : Contract }
-      { ω : List ReduceWarning }
       { μ : List Payment }
       { ξ : Party }
-    → evaluate ϵ σ ν > 0ℤ
+    → let value = evaluate ϵ σ ν in
+      value ≤ moneyInAccount αₓ τ (State.accounts σ)
     ---------------------
-    → let value = evaluate ϵ σ ν
-          available = moneyInAccount αₓ τ (State.accounts σ)
-          paid = available ⊓ value
-      in
-      record {
+    → record {
         contract = Pay αₓ (mkParty ξ) τ ν γ ;
         state = σ ;
         environment = ϵ ;
-        warnings = ω ;
         payments = μ
       }
       ⇀
       record {
         contract = γ ;
-        state = record σ {accounts = updateMoneyInAccount αₓ τ (available - paid) (State.accounts σ)} ;
+        state = record σ {
+          accounts = subtractMoneyFromAccount αₓ τ value (State.accounts σ)
+          } ;
         environment = ϵ ;
-        warnings = ω ++ [ if ⌊ paid <? value ⌋ then ReducePartialPay αₓ (mkParty ξ) τ paid value else ReduceNoWarning ] ;
-        payments = μ ++ [ mkPayment αₓ (mkParty ξ) τ paid ]
+        payments = μ ++ [ mkPayment αₓ (mkParty ξ) τ value ]
       }
 
   IfTrue :
@@ -475,7 +441,6 @@ data _⇀_ : Configuration → Configuration → Set where
       { ϵ : Environment }
       { ο : Observation }
       { γ₁ γ₂ : Contract }
-      { ω : List ReduceWarning }
       { μ : List Payment }
     → observe ϵ σ ο ≡ true
     ----------------------
@@ -483,7 +448,6 @@ data _⇀_ : Configuration → Configuration → Set where
         contract = If ο γ₁ γ₂ ;
         state = σ ;
         environment = ϵ ;
-        warnings = ω ;
         payments = μ
       }
       ⇀
@@ -491,7 +455,6 @@ data _⇀_ : Configuration → Configuration → Set where
         contract = γ₁ ;
         state = σ ;
         environment = ϵ ;
-        warnings = ω ++ [ ReduceNoWarning ] ;
         payments = μ
       }
 
@@ -500,7 +463,6 @@ data _⇀_ : Configuration → Configuration → Set where
       { ϵ : Environment }
       { ο : Observation }
       { γ₁ γ₂ : Contract }
-      { ω : List ReduceWarning }
       { μ : List Payment }
     → observe ϵ σ ο ≡ false
     -----------------------
@@ -508,7 +470,6 @@ data _⇀_ : Configuration → Configuration → Set where
         contract = If ο γ₁ γ₂ ;
         state = σ ;
         environment = ϵ ;
-        warnings = ω ;
         payments = μ
       }
       ⇀
@@ -516,7 +477,6 @@ data _⇀_ : Configuration → Configuration → Set where
         contract = γ₂ ;
         state = σ ;
         environment = ϵ ;
-        warnings = ω ++ [ ReduceNoWarning ] ;
         payments = μ
       }
 
@@ -525,9 +485,8 @@ data _⇀_ : Configuration → Configuration → Set where
       { ϵ : Environment }
       { ο : Observation }
       { γ : Contract }
-      { ω : List ReduceWarning }
       { μ : List Payment }
-      { θ : Int }
+      { θ : ℕ }
       { ψ : List Case }
     → let (mkPosixTime startTime) = proj₁ (Environment.timeInterval ϵ) in startTime ≥ θ
     → let (mkPosixTime endTime) = proj₂ (Environment.timeInterval ϵ) in endTime ≥ θ
@@ -536,7 +495,6 @@ data _⇀_ : Configuration → Configuration → Set where
         contract = When ψ (mkTimeout (mkPosixTime θ)) γ ;
         state = σ;
         environment = ϵ ;
-        warnings = ω ;
         payments = μ
       }
       ⇀
@@ -544,7 +502,6 @@ data _⇀_ : Configuration → Configuration → Set where
         contract = γ ;
         state = σ ;
         environment = ϵ ;
-        warnings = ω ++ [ ReduceNoWarning ] ;
         payments = μ
       }
 
@@ -555,8 +512,7 @@ data _⇀_ : Configuration → Configuration → Set where
       { γ : Contract }
       { νₓ : ValueId }
       { ν : Value }
-      { ι : Int }
-      { ω : List ReduceWarning }
+      { ι : ℕ }
       { μ : List Payment }
     → νₓ lookup (State.boundValues σ) ≡ just ι
     ------------------------------------------
@@ -564,7 +520,6 @@ data _⇀_ : Configuration → Configuration → Set where
         contract = Let νₓ ν γ ;
         state = σ ;
         environment = ϵ ;
-        warnings = ω ;
         payments = μ
       }
       ⇀
@@ -572,7 +527,6 @@ data _⇀_ : Configuration → Configuration → Set where
         contract = γ ;
         state = σ ;
         environment = ϵ ;
-        warnings = ω ++ [ ReduceShadowing νₓ ι (evaluate ϵ σ ν) ] ;
         payments = μ
       }
 
@@ -583,7 +537,6 @@ data _⇀_ : Configuration → Configuration → Set where
       { γ : Contract }
       { νₓ : ValueId }
       { ν : Value }
-      { ω : List ReduceWarning }
       { μ : List Payment }
     → νₓ lookup (State.boundValues σ) ≡ nothing
     -------------------------------------------    
@@ -591,15 +544,13 @@ data _⇀_ : Configuration → Configuration → Set where
         contract = Let νₓ ν γ ;
         state = σ ;
         environment = ϵ ;
-        warnings = ω ;
         payments = μ
       }
       ⇀
       record {
         contract = γ ;
-        state = record σ {boundValues = νₓ insert (evaluate ϵ σ ν) into (State.boundValues σ) } ;
+        state = record σ { boundValues = νₓ insert (evaluate ϵ σ ν) into (State.boundValues σ) } ;
         environment = ϵ ;
-        warnings = ω ++ [ ReduceNoWarning ] ;
         payments = μ
       }
 
@@ -608,7 +559,6 @@ data _⇀_ : Configuration → Configuration → Set where
       { ϵ : Environment }
       { ο : Observation }
       { γ : Contract }
-      { ω : List ReduceWarning }
       { μ : List Payment }
     → observe ϵ σ ο ≡ true
     ----------------------
@@ -616,7 +566,6 @@ data _⇀_ : Configuration → Configuration → Set where
         contract = Assert ο γ ;
         state = σ ;
         environment = ϵ ;
-        warnings = ω ;
         payments = μ
       }
       ⇀
@@ -624,7 +573,6 @@ data _⇀_ : Configuration → Configuration → Set where
         contract = γ ;
         state = σ ;
         environment = ϵ ;
-        warnings = ω ++ [ ReduceNoWarning ] ;
         payments = μ
       }
 
@@ -633,7 +581,6 @@ data _⇀_ : Configuration → Configuration → Set where
       { ϵ : Environment }
       { ο : Observation }
       { γ : Contract }
-      { ω : List ReduceWarning }
       { μ : List Payment }
     → observe ϵ σ ο ≡ false
     -----------------------
@@ -641,7 +588,6 @@ data _⇀_ : Configuration → Configuration → Set where
         contract = Assert ο γ ;
         state = σ ;
         environment = ϵ ;
-        warnings = ω;
         payments = μ
       }
       ⇀
@@ -649,7 +595,6 @@ data _⇀_ : Configuration → Configuration → Set where
         contract = γ ;
         state = σ ;
         environment = ϵ ;
-        warnings = ω ++ [ ReduceAssertionFailed ] ;
         payments = μ
       }
 
@@ -663,13 +608,13 @@ infix  3 _∎
 
 data _⇀⋆_ : Configuration → Configuration → Set where
   _∎ : ∀ M
-      ---------
+    --------
     → M ⇀⋆ M
 
   _⇀⟨_⟩_ : ∀ L {M N}
     → L ⇀ M
     → M ⇀⋆ N
-      ---------
+    --------
     → L ⇀⋆ N
 
 begin_ : ∀ {M N}

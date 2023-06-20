@@ -4,6 +4,7 @@ module Marlowe.Language.Transaction where
 
 open import Agda.Builtin.Int using (Int)
 open import Agda.Builtin.List using (List)
+open import Data.Nat using (ℕ; suc; zero)
 open import Marlowe.Language.Contract
 open import Marlowe.Language.Input
 open import Marlowe.Language.State
@@ -19,10 +20,8 @@ data IntervalResult : Set where
   IntervalTrimmed : Environment → State → IntervalResult
   mkIntervalError : IntervalError → IntervalResult
 
-
 data Payment : Set where
-  mkPayment : AccountId → Payee → Token → Int → Payment
-  
+  mkPayment : AccountId → Payee → Token → ℕ → Payment
 
 data TransactionWarning : Set where
   TransactionNonPositiveDeposit : Party → AccountId → Token → Int → TransactionWarning

@@ -5,6 +5,7 @@ module Marlowe.Language.Contract where
 open import Agda.Builtin.Int using (Int)
 open import Agda.Builtin.List using (List)
 open import Data.Bool using (Bool; false; _∧_)
+open import Data.Nat as ℕ using (ℕ)
 open import Primitives
 open import Relation.Nullary.Decidable using (⌊_⌋)
 
@@ -62,12 +63,12 @@ data Observation : Set
 
 data Value : Set where
   AvailableMoney : AccountId → Token → Value
-  Constant : Int → Value
-  NegValue : Value → Value
+  Constant : ℕ → Value
+  -- NegValue : Value → Value
   AddValue : Value → Value → Value
   SubValue : Value → Value → Value
   MulValue : Value → Value → Value
-  DivValue : Value → Value → Value
+  -- DivValue : Value → Value → Value
   ChoiceValue : ChoiceId → Value
   TimeIntervalStart : Value
   TimeIntervalEnd : Value
