@@ -1,48 +1,43 @@
-module Marlowe.Language.State where
+open import Relation.Binary using (DecidableEquality)
 
+module Marlowe.Language.State
+  {Party Token : Set}
+  (_=ᵖ_ : DecidableEquality Party)
+  (_=ᵗ_ : DecidableEquality Token) where
 
-open import Agda.Builtin.Int using (Int)
-open import Data.Bool using (Bool; _∧_)
 open import Data.List using ([])
 open import Data.Nat using (ℕ)
 open import Data.Product using (_×_; _,_)
-open import Marlowe.Language.Contract using (AccountId; ChoiceId; Token; ValueId; _eqAccountId_; _eqChoiceId_; _eqToken_; _eqValueId_)
-open import Primitives using (AssocList; Map; emptyMap; PosixTime)
-open import Relation.Nullary using (Dec; yes; no)
-import Relation.Binary.PropositionalEquality as Eq
-open Eq using (_≡_; refl; cong; sym)
+
+import Marlowe.Language.Contract as Contract
+open Contract {Party} {Token} (_=ᵖ_) (_=ᵗ_) using (AccountId ; ChoiceId ; ValueId)
+open import Primitives using (AssocList ; PosixTime)
 
 Accounts : Set
 Accounts = AssocList (AccountId × Token) ℕ
 
+Choices : Set
+Choices = AssocList ChoiceId ℕ
 
-_eqAccountIdToken_ : AccountId × Token → AccountId × Token → Bool
-_eqAccountIdToken_ (account , token) (account' , token') = account eqAccountId account' ∧ token eqToken token'
-
-postulate
-  _eqAccountIdTokenDec_ : ∀ (x y : AccountId × Token) → Dec (x ≡ y)
+BoundValues : Set
+BoundValues = AssocList ValueId ℕ
 
 record State : Set where
   constructor mkState
   field
     accounts : Accounts
-    choices : Map ChoiceId ℕ
-    boundValues : Map ValueId ℕ
+    choices : Choices
+    boundValues : BoundValues
     minTime : PosixTime
 
 emptyState : PosixTime → State
-emptyState =
-  mkState
-    []
-    (emptyMap _eqChoiceId_)
-    (emptyMap _eqValueId_)
-
+emptyState = mkState [] [] []
 
 TimeInterval : Set
 TimeInterval = PosixTime × PosixTime
-
 
 record Environment : Set where
   constructor mkEnvironment
   field
     timeInterval : TimeInterval
+

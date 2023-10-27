@@ -1,15 +1,19 @@
+open import Relation.Binary using (DecidableEquality)
 
-module Marlowe.Language.Input where
-
+module Marlowe.Language.Input
+  {Party Token : Set}
+  (_=ᵖ_ : DecidableEquality Party)
+  (_=ᵗ_ : DecidableEquality Token) where
 
 open import Agda.Builtin.Int using (Int)
 open import Agda.Builtin.List using (List)
 open import Data.Bool using (Bool; _∧_)
 open import Data.Integer using (_≤?_)
 open import Data.List using (any)
-open import Marlowe.Language.Contract using (AccountId; Bound; ChoiceId; Party; Token)
 open import Relation.Nullary.Decidable using (⌊_⌋)
 
+import Marlowe.Language.Contract as Contract
+open Contract {Party} {Token} (_=ᵖ_) (_=ᵗ_) using (AccountId ; Bound ; ChoiceId ; ValueId)
 
 data ChosenNum : Set where
   mkChosenNum : Int → ChosenNum

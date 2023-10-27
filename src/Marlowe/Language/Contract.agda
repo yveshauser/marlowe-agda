@@ -1,63 +1,56 @@
+open import Relation.Binary using (DecidableEquality)
 
-module Marlowe.Language.Contract where
-
+module Marlowe.Language.Contract
+  {Party Token : Set}
+  (_=ᵖ_ : DecidableEquality Party)
+  (_=ᵗ_ : DecidableEquality Token) where
 
 open import Agda.Builtin.Int using (Int)
 open import Agda.Builtin.List using (List)
 open import Data.Bool using (Bool; false; _∧_)
 open import Data.Nat as ℕ using (ℕ)
-open import Primitives
+open import Data.Product using (_×_; _,_)
+open import Data.String using (String; _≟_)
+open import Primitives using (PosixTime)
 open import Relation.Nullary.Decidable using (⌊_⌋)
 
-
-data Party : Set where
-  Address : ByteString → Party
-  Role : ByteString → Party
-
-_eqParty_ : Party → Party → Bool
-_eqParty_ (Address x) (Address y) = ⌊ x eqByteString y ⌋
-_eqParty_ (Role x) (Role y) = ⌊ x eqByteString y ⌋
-_eqParty_ _ _ = false
-
+open import Relation.Nullary using (yes; no)
+import Relation.Binary.PropositionalEquality as Eq
+open Eq using (cong)
 
 data AccountId : Set where
   mkAccountId : Party → AccountId
 
-_eqAccountId_ : AccountId → AccountId → Bool
-_eqAccountId_ (mkAccountId x) (mkAccountId y) = x eqParty y
-
-
 data Timeout : Set where
   mkTimeout : PosixTime → Timeout
 
+record ChoiceName : Set where
+  constructor mkChoiceName
+  field
+    getString : String
 
-data ChoiceName : Set where
-  mkChoiceName : ByteString → ChoiceName
-
-_eqChoiceName_ : ChoiceName → ChoiceName → Bool
-_eqChoiceName_ (mkChoiceName x) (mkChoiceName y) = ⌊ x eqByteString y ⌋
-
+_eqChoiceName_ : DecidableEquality ChoiceName
+_eqChoiceName_ (mkChoiceName x) (mkChoiceName y) with x ≟ y
+... | yes p = yes (cong mkChoiceName p)
+... | no p = no (λ x →  p (cong getString x)) where open ChoiceName
 
 data ChoiceId : Set where
   mkChoiceId : ChoiceName → Party → ChoiceId
 
-_eqChoiceId_ : ChoiceId → ChoiceId → Bool
-_eqChoiceId_ (mkChoiceId xn xp) (mkChoiceId yn yp) = (xn eqChoiceName yn) ∧ (xp eqParty yp)
+record ValueId : Set where
+  constructor mkValueId
+  field
+    getString : String
 
+_eqValueId_ : DecidableEquality ValueId
+_eqValueId_ (mkValueId x) (mkValueId y) with x ≟ y
+... | yes p = yes (cong mkValueId p)
+... | no p = no (λ x →  p (cong getString x)) where open ValueId
 
-data Token : Set where
-  mkToken : ByteString → ByteString → Token
-
-_eqToken_ : Token → Token → Bool
-_eqToken_ (mkToken xs xn) (mkToken ys yn) = ⌊ xs eqByteString ys ⌋ ∧ ⌊ xn eqByteString yn ⌋
-    
-
-data ValueId : Set where
-  mkValueId : ByteString → ValueId
-
-_eqValueId_ : ValueId → ValueId → Bool
-_eqValueId_ (mkValueId x) (mkValueId y) = ⌊ x eqByteString y ⌋
-
+postulate
+  _eqAccountId_ : DecidableEquality AccountId
+  _eqChoiceId_ : DecidableEquality ChoiceId
+  _eqAccountIdTokenDec_ : DecidableEquality (AccountId × Token)
 
 data Observation : Set
 
@@ -88,32 +81,25 @@ data Observation where
   TrueObs : Observation
   FalseObs : Observation
 
-
 data Bound : Set where
   mkBound : Int → Int → Bound
-
 
 data Action : Set where
   Deposit : AccountId → Party → Token → Value → Action
   Choice : ChoiceId → List Bound → Action
   Notify : Observation → Action
 
-
 data Payee : Set where
   mkAccount : AccountId → Payee
   mkParty : Party → Payee
-  
 
 data Contract : Set
-
 
 data Case : Set where
   mkCase : Action → Contract → Case
 
-
 getAction : Case → Action
 getAction (mkCase action _) = action
-
 
 data Contract where
   Close : Contract

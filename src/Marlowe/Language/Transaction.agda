@@ -1,15 +1,22 @@
+open import Relation.Binary using (DecidableEquality)
 
-module Marlowe.Language.Transaction where
-
+module Marlowe.Language.Transaction
+  {Party Token : Set}
+  (_=ᵖ_ : DecidableEquality Party)
+  (_=ᵗ_ : DecidableEquality Token) where
 
 open import Agda.Builtin.Int using (Int)
 open import Agda.Builtin.List using (List)
 open import Data.Nat using (ℕ; suc; zero)
-open import Marlowe.Language.Contract
-open import Marlowe.Language.Input
-open import Marlowe.Language.State
-open import Primitives
 
+import Marlowe.Language.Contract as Contract
+import Marlowe.Language.Input as Input
+import Marlowe.Language.State as State
+
+open Contract {Party} {Token} (_=ᵖ_) (_=ᵗ_) using (AccountId ; ChoiceId ; Contract ; Payee ; ValueId)
+open Input {Party} {Token} (_=ᵖ_) (_=ᵗ_) using (Input)
+open State {Party} {Token} (_=ᵖ_) (_=ᵗ_) using (Environment ; State ; TimeInterval)
+open import Primitives using (PosixTime)
 
 data IntervalError : Set where
   InvalidInterval : TimeInterval → IntervalError

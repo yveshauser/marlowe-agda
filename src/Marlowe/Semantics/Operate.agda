@@ -1,7 +1,10 @@
+open import Relation.Binary using (DecidableEquality)
 
-module Marlowe.Semantics.Operate where
-
-
+module Marlowe.Semantics.Operate
+  {Party Token : Set}
+  (_=ᵖ_ : DecidableEquality Party)
+  (_=ᵗ_ : DecidableEquality Token) where
+  
 open import Agda.Builtin.Int using (Int)
 open import Data.Bool using (Bool; if_then_else_; not; _∧_; _∨_; true; false)
 open import Data.Nat using (_<?_; _≤?_; _≟_ ; _⊔_; _⊓_; _≤_ ; _>_ ; _≥_ ; _<_ ; _+_ ; _∸_)
@@ -12,21 +15,27 @@ open import Data.Product using (Σ; _,_; ∃; Σ-syntax; ∃-syntax)
 open import Data.Product using (_×_; proj₁; proj₂)
 import Data.String as String
 open import Function.Base using (case_of_)
-open import Marlowe.Language.Contract
-open import Marlowe.Language.Input
-open import Marlowe.Language.State
-open import Marlowe.Language.Transaction
-open import Marlowe.Semantics.Evaluate
-open import Primitives
+open import Relation.Binary
+
+import Marlowe.Language.Contract as Contract
+import Marlowe.Language.Input as Input
+import Marlowe.Language.State as State
+import Marlowe.Language.Transaction as Transaction
+import Marlowe.Semantics.Evaluate as Evaluate
+
+open Contract {Party} {Token} (_=ᵖ_) (_=ᵗ_) 
+open Input {Party} {Token} (_=ᵖ_) (_=ᵗ_)
+open State {Party} {Token} (_=ᵖ_) (_=ᵗ_)
+open Transaction {Party} {Token} (_=ᵖ_) (_=ᵗ_)
+open Evaluate {Party} {Token} (_=ᵖ_) (_=ᵗ_)
+open import Primitives renaming (AssocList to Map) hiding (Token ; Party)
+
 open import Relation.Nullary.Decidable using (⌊_⌋)
 open import Relation.Nullary using (¬_)
 open import Function.Base using (_$_)
 
 import Relation.Binary.PropositionalEquality as Eq
 open Eq using (_≡_; refl; cong; sym)
-
-import Primitives as P
-open P.Decidable _eqAccountIdTokenDec_ using (_‼_)
 
 {-
 
@@ -61,6 +70,7 @@ refundOne (((mkAccountId ρ , τ) , ι) ∷ α) =
 
 moneyInAccount : AccountId → Token → Accounts → ℕ
 moneyInAccount αₓ τ α = fromMaybe 0 ((αₓ , τ) ‼ α)
+  where open Decidable _eqAccountIdTokenDec_
 
 updateMoneyInAccount : AccountId → Token → ℕ → Accounts → Accounts
 updateMoneyInAccount account token amount accounts = (((account , token) , amount) ↑ accounts)
@@ -336,6 +346,9 @@ playTrace minTime c = playTraceAux (mkTransactionOutput [] [] (emptyState minTim
 
 -}
 
+open Decidable _eqChoiceId_ renaming (_‼_ to _xx_)
+open Decidable _eqValueId_ renaming (_‼_ to _yy_)
+
 record Configuration : Set where
   field contract : Contract
         state : State
@@ -514,7 +527,7 @@ data _⇀_ : Configuration → Configuration → Set where
       { ν : Value }
       { ι : ℕ }
       { μ : List Payment }
-    → νₓ lookup (State.boundValues σ) ≡ just ι
+    → νₓ yy (State.boundValues σ) ≡ just ι
     ------------------------------------------
     → record {
         contract = Let νₓ ν γ ;
@@ -538,7 +551,7 @@ data _⇀_ : Configuration → Configuration → Set where
       { νₓ : ValueId }
       { ν : Value }
       { μ : List Payment }
-    → νₓ lookup (State.boundValues σ) ≡ nothing
+    → νₓ yy (State.boundValues σ) ≡ nothing
     -------------------------------------------    
     → record {
         contract = Let νₓ ν γ ;
@@ -549,7 +562,7 @@ data _⇀_ : Configuration → Configuration → Set where
       ⇀
       record {
         contract = γ ;
-        state = record σ { boundValues = νₓ insert (evaluate ϵ σ ν) into (State.boundValues σ) } ;
+        state = record σ { boundValues = (νₓ , evaluate ϵ σ ν) ↑ State.boundValues σ } ;
         environment = ϵ ;
         payments = μ
       }
