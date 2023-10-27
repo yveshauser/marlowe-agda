@@ -18,8 +18,15 @@ open import Relation.Nullary using (yes; no)
 import Relation.Binary.PropositionalEquality as Eq
 open Eq using (cong)
 
-data AccountId : Set where
-  mkAccountId : Party → AccountId
+record AccountId : Set where
+  constructor mkAccountId
+  field
+    getParty : Party
+
+_eqAccountId_ : DecidableEquality AccountId
+_eqAccountId_ (mkAccountId x) (mkAccountId y) with x =ᵖ y
+... | yes p = yes (cong mkAccountId p)
+... | no p = no (λ x →  p (cong getParty x)) where open AccountId
 
 data Timeout : Set where
   mkTimeout : PosixTime → Timeout
@@ -34,8 +41,20 @@ _eqChoiceName_ (mkChoiceName x) (mkChoiceName y) with x ≟ y
 ... | yes p = yes (cong mkChoiceName p)
 ... | no p = no (λ x →  p (cong getString x)) where open ChoiceName
 
-data ChoiceId : Set where
-  mkChoiceId : ChoiceName → Party → ChoiceId
+record ChoiceId : Set where
+  constructor mkChoiceId
+  field
+    getParty : ChoiceName → Party
+
+postulate
+  _eqChoiceId_ : DecidableEquality ChoiceId
+{-
+_eqChoiceId_ (mkChoiceId x a) (mkChoiceId y b) with x eqChoiceName y | a =ᵖ b
+... | yes p | yes q = ? -- yes (cong mkAccountId p)
+... | yes p | no q = ?
+... | no p | yes q = ? -- no (λ x →  p (cong getParty x)) where open AccountId
+... | no p | no q = ?
+-}
 
 record ValueId : Set where
   constructor mkValueId
@@ -48,8 +67,6 @@ _eqValueId_ (mkValueId x) (mkValueId y) with x ≟ y
 ... | no p = no (λ x →  p (cong getString x)) where open ValueId
 
 postulate
-  _eqAccountId_ : DecidableEquality AccountId
-  _eqChoiceId_ : DecidableEquality ChoiceId
   _eqAccountIdTokenDec_ : DecidableEquality (AccountId × Token)
 
 data Observation : Set

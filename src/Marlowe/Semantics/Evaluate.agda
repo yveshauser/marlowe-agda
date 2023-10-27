@@ -26,7 +26,8 @@ import Marlowe.Language.State as State
 
 open Contract {Party} {Token} (_=ᵖ_) (_=ᵗ_) 
 open Input {Party} {Token} (_=ᵖ_) (_=ᵗ_)
-open State {Party} {Token} (_=ᵖ_) (_=ᵗ_)
+open State
+open State.Generic {Party} {Token} (_=ᵖ_) (_=ᵗ_)
 open import Primitives
 
 {-

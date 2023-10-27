@@ -15,7 +15,8 @@ import Marlowe.Language.State as State
 
 open Contract {Party} {Token} (_=ᵖ_) (_=ᵗ_) using (AccountId ; ChoiceId ; Contract ; Payee ; ValueId)
 open Input {Party} {Token} (_=ᵖ_) (_=ᵗ_) using (Input)
-open State {Party} {Token} (_=ᵖ_) (_=ᵗ_) using (Environment ; State ; TimeInterval)
+open State using (Environment ; TimeInterval)
+open State.Generic {Party} {Token} (_=ᵖ_) (_=ᵗ_) using (State)
 open import Primitives using (PosixTime)
 
 data IntervalError : Set where
